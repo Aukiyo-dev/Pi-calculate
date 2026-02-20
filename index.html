@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Continuous Pi Generator</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f9; display: flex; flex-direction: column; align-items: center; padding: 20px; margin: 0; height: 100vh; box-sizing: border-box; }
+        .container { background: white; padding: 2rem; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); width: 100%; max-width: 600px; text-align: center; display: flex; flex-direction: column; flex-grow: 1; max-height: 90vh; }
+        h1 { color: #2c3e50; margin-bottom: 0.5rem; margin-top: 0; }
+        p { color: #666; margin-bottom: 1.5rem; }
+        .controls { margin-bottom: 20px; display: flex; justify-content: center; gap: 10px; }
+        button { padding: 10px 20px; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; transition: 0.3s; width: 120px; }
+        #startBtn { background: #2ecc71; }
+        #startBtn:hover { background: #27ae60; }
+        #stopBtn { background: #e74c3c; cursor: not-allowed; opacity: 0.6; }
+        #stopBtn.active { cursor: pointer; opacity: 1; }
+        #stopBtn.active:hover { background: #c0392b; }
+        
+        .status { font-size: 0.9rem; font-weight: bold; color: #3498db; height: 20px; margin-bottom: 10px; }
+
+        #pi-display-container {
+            flex-grow: 1;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            background: #fafafa;
+            text-align: left;
+            word-wrap: break-word;
+            word-break: break-all;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem;
+            line-height: 1.5;
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .digit-count {
+            margin-top: 10px;
+            font-size: 0.85rem;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Continuous $\pi$ Generator</h1>
+    <p>Streaming digits in real-time using a Spigot Algorithm.</p>
+    
+    <div class="controls">
+        <button id="startBtn" onclick="startCalculating()">Start</button>
+        <button id="stopBtn" onclick="stopCalculating()">Pause</button>
+    </div>
+
+    <div id="status-message" class="status">Ready to calculate...</div>
+
+    <div id="pi-display-container">
+        <span id="pi-text">3.</span>
+    </div>
+
+    <div class="digit-count">Digits calculated: <span id="counter">0</span></div>
+</div>
+
+<script>
+    let isCalculating = false;
+    let piGenerator = null;
+    let digitCount = 0;
+    let animationFrameId;
+
+    const piTextElement = document.getElementById('pi-text');
+    const counterElement = document.getElementById('counter');
+    const statusElement = document.getElementById('status-message');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const displayContainer = document.getElementById('pi-display-container');
+
+    // Spigot Algorithm using BigInt to generate Pi digit by digit infinitely
+    function* generatePiDigits() {
+        let q = 1n, r = 0n, t = 1n, k = 1n, n = 3n, l = 3n;
+        
+        while (true) {
+            if (4n * q + r - t < n * t) {
+                yield Number(n);
+                let nr = 10n * (r - n * t);
+                n = (10n * (3n * q + r)) / t - 10n * n;
+                q *= 10n;
+                r = nr;
+            } else {
+                let nr = (2n * q + r) * l;
+                let nn = (q * (7n * k) + 2n + r * l) / (t * l);
+                q *= k;
+                t *= l;
+                l += 2n;
+                k += 1n;
+                n = nn;
+                r = nr;
+            }
+        }
+    }
+
+    function startCalculating() {
+        if (isCalculating) return;
+        
+        isCalculating = true;
+        startBtn.style.opacity = '0.6';
+        startBtn.style.cursor = 'not-allowed';
+        stopBtn.classList.add('active');
+        statusElement.innerText = "Calculating in real-time...";
+        statusElement.style.color = "#2ecc71";
+
+        // Initialize generator if it doesn't exist (first run)
+        if (!piGenerator) {
+            piGenerator = generatePiDigits();
+            piGenerator.next(); // Skip the first '3' as we hardcoded "3." in HTML
+        }
+
+        processChunk();
+    }
+
+    function stopCalculating() {
+        if (!isCalculating) return;
+        
+        isCalculating = false;
+        cancelAnimationFrame(animationFrameId);
+        
+        startBtn.style.opacity = '1';
+        startBtn.style.cursor = 'pointer';
+        startBtn.innerText = 'Resume';
+        stopBtn.classList.remove('active');
+        
+        statusElement.innerText = "Calculation paused. (Pi is infinite, so it never truly finishes!)";
+        statusElement.style.color = "#e74c3c";
+    }
+
+    // Process in small chunks to prevent the browser from freezing
+    function processChunk() {
+        if (!isCalculating) return;
+
+        let chunk = "";
+        // Calculate 10 digits per visual frame
+        for (let i = 0; i < 10; i++) {
+            chunk += piGenerator.next().value;
+            digitCount++;
+        }
+
+        // Append to DOM
+        piTextElement.appendChild(document.createTextNode(chunk));
+        counterElement.innerText = digitCount.toLocaleString();
+
+        // Auto-scroll to bottom
+        displayContainer.scrollTop = displayContainer.scrollHeight;
+
+        // Yield back to the browser to render, then continue
+        animationFrameId = requestAnimationFrame(processChunk);
+    }
+</script>
+
+</body>
+</html>
